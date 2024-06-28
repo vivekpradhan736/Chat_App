@@ -7,11 +7,33 @@ const messageRoutes = require("./routes/messageRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware.js");
 const { chats } = require('./data/data');
 const path = require("path");
+const bodyParser = require('body-parser');
+const axios = require('axios');
+const cors = require('cors');
 
 dotenv.config();
 connectDB();
 const app = express();
 app.use(express.json()); // to accept json data
+app.use(bodyParser.json());
+app.use(cors());
+
+// Daily.co credentials
+const apiKey = '2ab861b26dad9a80540fb82235cf6100fe46e312436c4b33c9cbffc90656d7ac';
+
+// Create a room
+app.post('/create-room', async (req, res) => {
+  try {
+      const response = await axios.post('https://api.daily.co/v1/rooms', {
+          properties: { enable_chat: true }
+      }, {
+          headers: { Authorization: `Bearer ${apiKey}` }
+      });
+      res.json(response.data);
+  } catch (error) {
+      res.status(500).send(error);
+  }
+});
 
 // routes
 app.use('/api/user', userRoutes);
@@ -72,7 +94,7 @@ io.on("connection", (socket) => {
   socket.on("new message", (newMessageRecieved) => {
     var chat = newMessageRecieved.chat;
 
-    if (!chat.users) return console.log("chat.users not defined");
+    if (!chat?.users) return console.log("chat.users not defined");
 
     chat.users.forEach((user) => {
       if (user._id == newMessageRecieved.sender._id) return;

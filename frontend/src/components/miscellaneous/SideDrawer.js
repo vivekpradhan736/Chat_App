@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useDisclosure } from "@chakra-ui/hooks";
 import { Box, Text } from "@chakra-ui/layout";
 import { Tooltip } from "@chakra-ui/tooltip";
@@ -31,6 +31,7 @@ import { Effect } from "react-notification-badge";
 import UserListItem from "../userAvatar/UserListItem.js";
 import { ChatState } from "../../Context/ChatProvider";
 import { getSender } from "../../config/ChatLogics.js";
+import debounce from "lodash.debounce";
 
 const SideDrawer = () => {
   const [search, setSearch] = useState("");
@@ -47,21 +48,6 @@ const SideDrawer = () => {
     chats,
     setChats,
   } = ChatState();
-  
-  useEffect(() => {
-    const uniqueNotifications = [];
-    const chatIds = new Set();
-
-    notification.forEach((notif) => {
-      if (!chatIds.has(notif.chat._id)) {
-        uniqueNotifications.push(notif);
-        chatIds.add(notif.chat._id);
-      }
-    });
-
-    setNotificationData(uniqueNotifications);
-  }, [notification]);
-  
 
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -72,17 +58,17 @@ const SideDrawer = () => {
     navigate("/");
   };
 
-  const handleSearch = async () => {
-    if (!search) {
-      toast({
-        title: "Please Enter something in search",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "top-left",
-      });
-      return;
-    }
+  const handleSearch = async (search = '') => {
+    // if (!search) {
+    //   toast({
+    //     title: "Please Enter something in search",
+    //     status: "warning",
+    //     duration: 5000,
+    //     isClosable: true,
+    //     position: "top-left",
+    //   });
+    //   return;
+    // }
 
     try {
       setLoading(true);
@@ -136,6 +122,32 @@ const SideDrawer = () => {
       });
     }
   };
+
+  const debounceAPI = useCallback(debounce((search)=> handleSearch(search), 1000), [])
+
+  useEffect(() => {
+    const uniqueNotifications = [];
+    const chatIds = new Set();
+
+    notification.forEach((notif) => {
+      if (!chatIds.has(notif.chat._id)) {
+        uniqueNotifications.push(notif);
+        chatIds.add(notif.chat._id);
+      }
+    });
+
+    setNotificationData(uniqueNotifications);
+  }, [notification]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleSearch();
+    }, 2000); 
+    
+    return () => clearTimeout(timer);
+  }, [])
+  
+
   return (
     <>
       <Box
@@ -327,20 +339,26 @@ const SideDrawer = () => {
                 placeholder="Search by name or email"
                 mr={2}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                // onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  debounceAPI(e.target.value)
+                }}
               />
-              <Button onClick={handleSearch}>Go</Button>
+              <Button onClick={handleSearch}>All</Button>
             </Box>
             {loading ? (
               <ChatLoading />
-            ) : (
+            ) : ( searchResult.length > 0 ? (
               searchResult?.map((user) => (
                 <UserListItem
                   key={user._id}
                   user={user}
                   handleFunction={() => accessChat(user._id)}
                 />
-              ))
+              ))) : (
+              <Text className="text-red-600 py-6 px-14">No User Found🙅🏻</Text>
+              )
             )}
             {loadingChat && <Spinner m="auto" display="flex" />}
           </DrawerBody>
